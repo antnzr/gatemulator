@@ -1,0 +1,10 @@
+gatemulator.db
+.env
+*.crt
+*.key
+*.pem
+.vscode
+bin
+.vscode/settings.json
+profile.cov
+node_modules

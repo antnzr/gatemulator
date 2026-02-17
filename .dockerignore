@@ -1,0 +1,17 @@
+.editorconfig
+AUTHORS.md
+CONTRIBUTING.md
+LICENSE
+Makefile
+NOTICE
+README.md
+gatemulator
+gatemulator.db
+.git
+**/*.tar.gz
+**/*.tgz
+.vscode
+.env
+*.log
+test
+node_modules

@@ -1,0 +1,170 @@
+config:
+  target: "http://192.168.0.107:3000"
+  processor: "./processor.js"
+  debug: true
+  variables:
+    accountPhone: "+77089960010"
+    authCode: "4242"
+    companyName: "MyTestCompany002"
+    socketUrl: "http://192.168.0.107:3001"
+    gateUrl: "http://192.168.0.107:34000"
+    authServerUrl: "http://192.168.0.107:5050"
+    authServerToken: "V1StGXR8_Z5jdHi6B-myT"
+    gateToken: "abcdefg"
+    phoneNumber: ""
+    ticketId: ""
+  phases:
+    - duration: 7
+      arrivalRate: 1
+      rampTo: 14
+  http:
+    timeout: 60
+  plugins:
+    fake-data: {}
+    expect: {}
+
+before:
+  flow:
+    - log: "User [{{ accountPhone }}] authorization"
+    - function: "loginOnAuth"
+    - log: "Create Channel"
+    - post:
+        url: "/channels"
+        json:
+          transport: "whatsapp"
+        headers:
+          Content-Type: application/json
+          Cookie: "{{ auth_cookie }}"
+        expect:
+          - statusCode: 201
+        afterResponse: "extractSubscriptionId"
+    - think: 3
+    - log: "Scan qr for channel {{ subscriptionId }}"
+    - function: "generateRandomPhone"
+    - function: "getSubscriptionId"
+    - post:
+        url: "{{ gateUrl }}/api/subscription/scan-qr"
+        json:
+          subscriptionId: "{{ subscriptionId }}"
+          phone: "{{ phoneNumber }}"
+        headers:
+          Authorization: Bearer {{ gateToken }}
+        expect:
+          - statusCode: 204
+    - think: 3
+    - log: "Messenger Sends Message"
+    - function: "generateRandomPhone"
+    - post:
+        url: "{{ gateUrl }}/api/messages/messenger-sends-message"
+        headers:
+          Authorization: Bearer {{ gateToken }}
+        json:
+          subscriptionId: "{{ subscriptionId }}"
+          receiverPhone: "{{ phoneNumber }}"
+          messageText: "{{ $randEmoji() }} {{ $randQuote() }}"
+    - think: 3
+    - log: "Get tickets"
+    - get:
+        url: "/tickets"
+        headers:
+          Content-Type: application/json
+          Cookie: "{{ auth_cookie }}"
+        expect:
+          - statusCode: 200
+        afterResponse:
+          - "saveTickets"
+
+scenarios:
+  - name: "Create Channels"
+    weight: 1
+    flow:
+      - log: "Get tickets"
+      - get:
+          url: "/tickets"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          expect:
+            - statusCode: 200
+          afterResponse:
+            - "saveTickets"
+      - post:
+          url: "/channels"
+          json:
+            transport: "whatsapp"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          expect:
+            - statusCode: 201
+          afterResponse: "extractSubscriptionId"
+      - log: "Scan qr for channel {{ subscriptionId }}"
+      - function: "generateRandomPhone"
+      - post:
+          url: "{{ gateUrl }}/api/subscription/scan-qr"
+          json:
+            subscriptionId: "{{ subscriptionId }}"
+            phone: "{{ phoneNumber }}"
+          headers:
+            Authorization: Bearer {{ gateToken }}
+          expect:
+            - statusCode: 204
+
+  - name: "Use Channels"
+    weight: 1
+    flow:
+      - log: "Get channels"
+      - get:
+          url: "/channels"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Messenger Send Messages"
+    weight: 3
+    flow:
+      - function: "generateRandomPhone"
+      - post:
+          url: "{{ gateUrl }}/api/messages/messenger-sends-message"
+          headers:
+            Authorization: Bearer {{ gateToken }}
+          json:
+            subscriptionId: "{{ subscriptionId }}"
+            receiverPhone: "{{ phoneNumber }}"
+            messageText: "{{ $randEmoji() }} {{ $randQuote() }}"
+
+  - name: "Get Tickets"
+    weight: 2
+    flow:
+      - log: "Get tickets"
+      - get:
+          url: "/tickets"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          expect:
+            - statusCode: 200
+          afterResponse: "saveTickets"
+      - function: "setRandomTicketId"
+      - post:
+          url: "/messages/send"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          json:
+            ticketId: "{{ ticketId }}"
+            type: 1
+            text: "{{ $randEmoji() }} {{ $randQuote() }}"
+          expect:
+            - statusCode: 204
+      - log: "Get messages"
+      - function: "setRandomTicketId"
+      - get:
+          url: "/messages?ticketId={{ ticketId }}"
+          headers:
+            Content-Type: application/json
+            Cookie: "{{ auth_cookie }}"
+          expect:
+            - statusCode: 200

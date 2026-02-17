@@ -1,0 +1,9 @@
+{
+  "name": "load",
+  "version": "1.0.0",
+  "main": "processor.js",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io-client": "^4.8.0"
+  }
+}
